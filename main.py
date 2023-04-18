@@ -11,10 +11,9 @@ class DragAndDrop(TkinterDnD.Tk):
     def __init__(self):
         super().__init__()
 
-        # DB接続
+        # DBに接続し、テーブルを作成。既にテーブルが存在するなら作成しない。
         self.conn = sqlite3.connect('app.db')
         self.cur = self.conn.cursor()
-        # テーブル作成
         self.cur.execute('''CREATE TABLE IF NOT EXISTS apps
                            (id INTEGER PRIMARY KEY,
                             name TEXT,
@@ -32,7 +31,14 @@ class DragAndDrop(TkinterDnD.Tk):
         self.frame_drag_drop = tk.LabelFrame(self)
         self.frame_drag_drop.textbox = tk.Text(self.frame_drag_drop)
 
-        # テキストボックスに表示
+        # フレームの作成
+        # フレーム1(上側：リストボックスを格納する)
+        self.frame_list = tk.Frame()
+        self.frame_list.grid(row=0, sticky="we")
+        self.frame_list.listbox = tk.Listbox(self.frame_list, height=8, listvariable="", selectmode="single")
+        self.frame_list.listbox.pack()
+
+        # DBに登録しているアプリ情報を表示
         self.disp_app_info()
 
         # ドラッグアンドドロップ
@@ -78,7 +84,7 @@ class DragAndDrop(TkinterDnD.Tk):
         # テキストボックスをクリア
         self.frame_drag_drop.textbox.configure(state='normal')
         self.frame_drag_drop.textbox.delete('1.0', tk.END)
-        
+
         # テキストボックスにDBから読み込んだパスを表示する。DBが作成されていなければデフォルト値を表示する
         # DBからアプリ情報を読み込む
         self.cur.execute('SELECT name, path FROM apps ORDER BY id ASC')
@@ -88,8 +94,25 @@ class DragAndDrop(TkinterDnD.Tk):
         else:
             for app in apps:
                 self.frame_drag_drop.textbox.insert(tk.END, f'{app[0]}\n')
+                self.frame_list.listbox.insert(tk.END, f'{app[0]}\n')
         self.frame_drag_drop.textbox.configure(state='disabled')
         self.frame_drag_drop.textbox.see(tk.END)
+
+        # # テキストボックスをクリア
+        # self.frame_drag_drop.textbox.configure(state='normal')
+        # self.frame_drag_drop.textbox.delete('1.0', tk.END)
+        #
+        # # テキストボックスにDBから読み込んだパスを表示する。DBが作成されていなければデフォルト値を表示する
+        # # DBからアプリ情報を読み込む
+        # self.cur.execute('SELECT name, path FROM apps ORDER BY id ASC')
+        # apps = self.cur.fetchall()
+        # if not apps:
+        #     self.frame_drag_drop.textbox.insert(tk.END, "ここにファイルをドロップ")
+        # else:
+        #     for app in apps:
+        #         self.frame_drag_drop.textbox.insert(tk.END, f'{app[0]}\n')
+        # self.frame_drag_drop.textbox.configure(state='disabled')
+        # self.frame_drag_drop.textbox.see(tk.END)
 
     # アプリ終了時、DBを切断
     def __del__(self):
