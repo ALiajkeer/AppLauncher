@@ -1,61 +1,117 @@
 import tkinter as tk
 from tkinterdnd2 import DND_FILES, TkinterDnD
+import sqlite3
+from PIL import Image, ImageTk
+from pathlib import Path
+import win32api
+import win32con
+import win32gui
+import os
+
+APP_DEF_WIDTH = 300
+APP_DEF_HEIGHT = 100
 
 
-class MyApp(TkinterDnD.Tk):
+class DragAndDrop(TkinterDnD.Tk):
     def __init__(self):
         super().__init__()
 
-        # ウィンドウサイズ
-        width = 300
-        height = 100
-        self.geometry(f'{width}x{height}')
-        self.minsize(width, height)
-        self.maxsize(width, height)
-        self.title(f'DnD')
+        # DB接続
+        self.conn = sqlite3.connect('app.db')
+        self.cur = self.conn.cursor()
+        # テーブル作成
+        self.cur.execute('''CREATE TABLE IF NOT EXISTS apps
+                           (id INTEGER PRIMARY KEY,
+                            name TEXT,
+                            path TEXT,
+                            icon_path TEXT)''')
+        self.conn.commit()
+
+        # ウィンドウサイズ、タイトルの設定
+        self.geometry(f'{APP_DEF_WIDTH}x{APP_DEF_HEIGHT}')
+        self.minsize(APP_DEF_WIDTH, APP_DEF_HEIGHT)
+        self.maxsize(APP_DEF_WIDTH+100, APP_DEF_HEIGHT+100)
+        self.title(f'アプリランチャー')
 
         # フレーム
-        self.frame_drag_drop = DragAndDrop(self)
+        self.frame_drag_drop = tk.LabelFrame(self)
+        self.frame_drag_drop.textbox = tk.Text(self.frame_drag_drop)
+
+        # テキストボックスに表示
+        self.disp_app_info()
+
+        # ドラッグアンドドロップ
+        self.frame_drag_drop.textbox.drop_target_register(DND_FILES)
+        self.frame_drag_drop.textbox.dnd_bind('<<Drop>>', self.func_drag_and_drop)
+
+        # スクロールバー設定
+        self.frame_drag_drop.scrollbar = tk.Scrollbar(self.frame_drag_drop, orient=tk.VERTICAL, command=self.frame_drag_drop.textbox.yview)
+        self.frame_drag_drop.textbox['yscrollcommand'] = self.frame_drag_drop.scrollbar.set
 
         # 配置
+        self.frame_drag_drop.textbox.grid(column=0, row=0, sticky=(tk.E, tk.W, tk.S, tk.N))
+        self.frame_drag_drop.scrollbar.grid(row=0, column=1, sticky=(tk.N, tk.S))
+        self.frame_drag_drop.columnconfigure(0, weight=1)
+        self.frame_drag_drop.rowconfigure(0, weight=1)
         self.frame_drag_drop.grid(column=0, row=0, padx=5, pady=5, sticky=(tk.E, tk.W, tk.S, tk.N))
         self.columnconfigure(0, weight=1)
         self.rowconfigure(0, weight=1)
 
+    # DBへ保存
+    def save_app_info(self, name, path, icon_path):
+        # データベースにアプリ情報を保存
+        self.cur.execute("INSERT INTO apps(name, path, icon_path) VALUES (?, ?, ?)", (name, path, icon_path))
+        self.conn.commit()
 
-class DragAndDrop(tk.LabelFrame):
-    def __init__(self, parent):
-        super().__init__(parent)
-        self.textbox = tk.Text(self)
-        self.textbox.insert(0.0, "Drag and Drop")
-        self.textbox.configure(state='disabled')
+    # ドラッグアンドドロップ時、ファイルのパスを取得する
+    def func_drag_and_drop(self, event):
+        # ドロップされたファイルからアプリ情報を取得
+        file_path = event.data.strip()
+        # 拡張子なしのファイル名を抽出
+        name = os.path.splitext(os.path.basename(file_path))
+        full_path = event.data.strip('{}\'')
+        icon_path = ''  # アイコンファイルパスはとりあえず空にしておく
 
-        # ドラッグアンドドロップ
-        self.textbox.drop_target_register(DND_FILES)
-        self.textbox.dnd_bind('<<Drop>>', self.funcDragAndDrop)
+        # アプリ情報をデータベースに保存
+        self.save_app_info(name[0], full_path, icon_path)
 
-        # スクロールバー設定
-        self.scrollbar = tk.Scrollbar(self, orient=tk.VERTICAL, command=self.textbox.yview)
-        self.textbox['yscrollcommand'] = self.scrollbar.set
+        # テキストボックスに表示
+        self.disp_app_info()
 
-        # 配置
-        self.textbox.grid(column=0, row=0, sticky=(tk.E, tk.W, tk.S, tk.N))
-        self.scrollbar.grid(row=0, column=1, sticky=(tk.N, tk.S))
-        self.columnconfigure(0, weight=1)
-        self.rowconfigure(0, weight=1)
+    # テキストボックスに表示
+    def disp_app_info(self):
+        # テキストボックスをクリア
+        self.frame_drag_drop.textbox.configure(state='normal')
+        self.frame_drag_drop.textbox.delete('1.0', tk.END)
+        
+        # テキストボックスにDBから読み込んだパスを表示する。DBが作成されていなければデフォルト値を表示する
+        # DBからアプリ情報を読み込む
+        self.cur.execute('SELECT name, path FROM apps ORDER BY id ASC')
+        apps = self.cur.fetchall()
+        if not apps:
+            self.frame_drag_drop.textbox.insert(tk.END, "ここにファイルをドロップ")
+        else:
+            for app in apps:
+                self.frame_drag_drop.textbox.insert(tk.END, f'{app[0]}\n')
+        # message = ""
+        # if not apps:
+        #     message = "ここにファイルをドロップ"
+        # else:
+        #     for app in apps:
+        #         message += f'{app[0]}\n'
+        # self.frame_drag_drop.textbox.insert(tk.END, message)
+        self.frame_drag_drop.textbox.configure(state='disabled')
+        self.frame_drag_drop.textbox.see(tk.END)
+
+    # アプリ終了時、DBを切断
+    def __del__(self):
+        self.conn.close()
 
 
-    def funcDragAndDrop(self, e):
-        # ここを編集してください
-        message = '\n' + e.data
-
-        self.textbox.configure(state='normal')
-        self.textbox.insert(tk.END, message)
-        self.textbox.configure(state='disabled')
-
-        self.textbox.see(tk.END)
+def main():
+    app = DragAndDrop()
+    app.mainloop()
 
 
 if __name__ == "__main__":
-    app = MyApp()
-    app.mainloop()
+    main()
