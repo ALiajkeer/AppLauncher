@@ -1,11 +1,6 @@
 import tkinter as tk
 from tkinterdnd2 import DND_FILES, TkinterDnD
 import sqlite3
-from PIL import Image, ImageTk
-from pathlib import Path
-import win32api
-import win32con
-import win32gui
 import os
 
 APP_DEF_WIDTH = 300
@@ -93,13 +88,6 @@ class DragAndDrop(TkinterDnD.Tk):
         else:
             for app in apps:
                 self.frame_drag_drop.textbox.insert(tk.END, f'{app[0]}\n')
-        # message = ""
-        # if not apps:
-        #     message = "ここにファイルをドロップ"
-        # else:
-        #     for app in apps:
-        #         message += f'{app[0]}\n'
-        # self.frame_drag_drop.textbox.insert(tk.END, message)
         self.frame_drag_drop.textbox.configure(state='disabled')
         self.frame_drag_drop.textbox.see(tk.END)
 
