@@ -53,6 +53,9 @@ class DragAndDrop(TkinterDnD.Tk):
         # アプリをダブルクリックで起動
         self.frame_drag_drop.listbox.bind('<Double-Button-1>', self.launch_app)
 
+        # 「DEL」キーでアプリを削除
+        self.frame_drag_drop.listbox.bind('<Delete>', self.delete_selected_item)
+
         # 配置
         self.columnconfigure(0, weight=1)
         self.rowconfigure(0, weight=1)
@@ -62,6 +65,29 @@ class DragAndDrop(TkinterDnD.Tk):
         # データベースにアプリ情報を保存
         self.cur.execute("INSERT INTO apps(name, path, icon_path) VALUES (?, ?, ?)", (name, path, icon_path))
         self.conn.commit()
+
+    # アプリ情報をDBから削除
+    def delete_selected_item(self, event):
+        # 選択されているアイテムを取得
+        selected_item = self.frame_drag_drop.listbox.curselection()
+        if not selected_item:
+            return
+        item_id = int(selected_item[0]) + 1
+        # データベースからアプリ情報を削除
+        self.cur.execute(f'DELETE FROM apps WHERE id={item_id}')
+        self.conn.commit()
+
+        # データベースのIDを振りなおす
+        self.cur.execute("SELECT id FROM apps ORDER BY id")
+        results = self.cur.fetchall()
+        if results:
+            # idを振り直す
+            for i, r in enumerate(results):
+                self.cur.execute(f"UPDATE apps SET id={i + 1} WHERE id={r[0]}")
+                self.conn.commit()
+
+        # アプリ情報を再表示
+        self.disp_app_info()
 
     # ドラッグアンドドロップ時、ファイルのパスを取得する
     def func_drag_and_drop(self, event):
