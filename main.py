@@ -72,11 +72,15 @@ class DragAndDrop(TkinterDnD.Tk):
         full_path = event.data.strip('{}\'')
         icon_path = ''  # アイコンファイルパスはとりあえず空にしておく
 
-        # アプリ情報をデータベースに保存
-        self.save_app_info(name[0], full_path, icon_path)
+        # exeファイルのみDBへ登録
+        if full_path.endswith(".exe"):
+            # アプリ情報をデータベースに保存
+            self.save_app_info(name[0], full_path, icon_path)
 
-        # テキストボックスに表示
-        self.disp_app_info()
+            # テキストボックスに表示
+            self.disp_app_info()
+        else:
+            self.frame_drag_drop.messagebox.showwarning("警告", "exeファイル以外のファイルは登録できません。")
 
     # DBに登録されたアプリをリストボックスに表示
     def disp_app_info(self):
@@ -102,7 +106,7 @@ class DragAndDrop(TkinterDnD.Tk):
 
         # アプリのパスをDBから取得
         self.cur.execute('SELECT id, name, path FROM apps WHERE name=?', (selected_text,))
-        app_path = self.cur.fetchone()[0]
+        app_path = self.cur.fetchone()[2]
         # アプリを起動
         app_dir = os.path.dirname(app_path)  # アプリのディレクトリを取得
         subprocess.run([app_path], cwd=app_dir)  # 実行時の作業フォルダをアプリのディレクトリに設定
