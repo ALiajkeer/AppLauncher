@@ -99,7 +99,8 @@ class DragAndDrop(TkinterDnD.Tk):
         icon_path = ''  # アイコンファイルパスはとりあえず空にしておく
 
         # exeファイルのみDBへ登録
-        if full_path.endswith(".exe"):
+        if full_path.lower().endswith(".exe"):
+        # if full_path.endswith(".exe"):
             # アプリ情報をデータベースに保存
             self.save_app_info(name[0], full_path, icon_path)
 
