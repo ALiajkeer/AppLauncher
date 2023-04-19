@@ -2,6 +2,7 @@ import tkinter as tk
 from tkinterdnd2 import DND_FILES, TkinterDnD
 import sqlite3
 import os
+import subprocess
 
 APP_DEF_WIDTH = 300
 APP_DEF_HEIGHT = 100
@@ -49,6 +50,9 @@ class DragAndDrop(TkinterDnD.Tk):
         self.frame_drag_drop.listbox.drop_target_register(DND_FILES)
         self.frame_drag_drop.listbox.dnd_bind('<<Drop>>', self.func_drag_and_drop)
 
+        # アプリをダブルクリックで起動
+        self.frame_drag_drop.listbox.bind('<Double-Button-1>', self.launch_app)
+
         # 配置
         self.columnconfigure(0, weight=1)
         self.rowconfigure(0, weight=1)
@@ -81,15 +85,27 @@ class DragAndDrop(TkinterDnD.Tk):
 
         # テキストボックスにDBから読み込んだパスを表示する。DBが作成されていなければデフォルト値を表示する
         # DBからアプリ情報を読み込む
-        self.cur.execute('SELECT name, path FROM apps ORDER BY id ASC')
+        self.cur.execute('SELECT id, name, path FROM apps ORDER BY id ASC')
         apps = self.cur.fetchall()
         if not apps:
             self.frame_drag_drop.listbox.insert(tk.END, "ここにファイルをドロップ")
         else:
             for app in apps:
-                self.frame_drag_drop.listbox.insert(tk.END, f'{app[0]}\n')
+                self.frame_drag_drop.listbox.insert(tk.END, f'{app[1]}\n')
 
         self.frame_drag_drop.listbox.see(tk.END)
+
+    # リストボックスのアプリをダブルクリックで起動
+    def launch_app(self, event):
+        # 選択されたアイテムのテキストを取得し、改行を削除
+        selected_text = self.frame_drag_drop.listbox.get(self.frame_drag_drop.listbox.curselection()).rstrip()
+
+        # アプリのパスをDBから取得
+        self.cur.execute('SELECT id, name, path FROM apps WHERE name=?', (selected_text,))
+        app_path = self.cur.fetchone()[0]
+        # アプリを起動
+        app_dir = os.path.dirname(app_path)  # アプリのディレクトリを取得
+        subprocess.run([app_path], cwd=app_dir)  # 実行時の作業フォルダをアプリのディレクトリに設定
 
     # アプリ終了時、DBを切断
     def __del__(self):
