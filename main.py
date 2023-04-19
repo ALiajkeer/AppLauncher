@@ -12,6 +12,9 @@ class DragAndDrop(TkinterDnD.Tk):
     def __init__(self):
         super().__init__()
 
+        # アプリ情報格納用
+        self.app_dict = {}
+
         # DBに接続し、テーブルを作成。既にテーブルが存在するなら作成しない。
         self.conn = sqlite3.connect('app.db')
         self.cur = self.conn.cursor()
@@ -100,11 +103,9 @@ class DragAndDrop(TkinterDnD.Tk):
 
         # exeファイルのみDBへ登録
         if full_path.lower().endswith(".exe"):
-        # if full_path.endswith(".exe"):
             # アプリ情報をデータベースに保存
             self.save_app_info(name[0], full_path, icon_path)
-
-            # テキストボックスに表示
+            # リストボックスに表示
             self.disp_app_info()
         else:
             self.frame_drag_drop.messagebox.showwarning("警告", "exeファイル以外のファイルは登録できません。")
@@ -118,25 +119,26 @@ class DragAndDrop(TkinterDnD.Tk):
         # DBからアプリ情報を読み込む
         self.cur.execute('SELECT id, name, path FROM apps ORDER BY id ASC')
         apps = self.cur.fetchall()
+        # アプリ情報格納用辞書を空にする
+        self.app_dict.clear()
+        # データベースの登録が無い場合は「ここにファイルをドロップ」と表示する
         if not apps:
             self.frame_drag_drop.listbox.insert(tk.END, "ここにファイルをドロップ")
         else:
             for app in apps:
+                # 辞書に登録しつつリストボックスに追加
+                self.app_dict.update({app[1]: app[2]})
                 self.frame_drag_drop.listbox.insert(tk.END, f'{app[1]}\n')
-
         self.frame_drag_drop.listbox.see(tk.END)
 
     # リストボックスのアプリをダブルクリックで起動
     def launch_app(self, event):
         # 選択されたアイテムのテキストを取得し、改行を削除
         selected_text = self.frame_drag_drop.listbox.get(self.frame_drag_drop.listbox.curselection()).rstrip()
-
-        # アプリのパスをDBから取得
-        self.cur.execute('SELECT id, name, path FROM apps WHERE name=?', (selected_text,))
-        app_path = self.cur.fetchone()[2]
-        # アプリを起動
-        app_dir = os.path.dirname(app_path)  # アプリのディレクトリを取得
-        subprocess.run([app_path], cwd=app_dir)  # 実行時の作業フォルダをアプリのディレクトリに設定
+        # アプリのパスを辞書から取得  # アプリのディレクトリを取得
+        app_dir = os.path.dirname(self.app_dict.get(selected_text))
+        # アプリを起動  # 実行時の作業フォルダをアプリのディレクトリに設定
+        subprocess.run([self.app_dict.get(selected_text)], cwd=app_dir)
 
     # アプリ終了時、DBを切断
     def __del__(self):
