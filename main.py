@@ -29,32 +29,27 @@ class DragAndDrop(TkinterDnD.Tk):
 
         # フレーム
         self.frame_drag_drop = tk.LabelFrame(self)
-        self.frame_drag_drop.textbox = tk.Text(self.frame_drag_drop)
+        self.frame_drag_drop.grid(row=0, sticky="we")
 
-        # フレームの作成
-        # フレーム1(上側：リストボックスを格納する)
-        self.frame_list = tk.Frame()
-        self.frame_list.grid(row=0, sticky="we")
-        self.frame_list.listbox = tk.Listbox(self.frame_list, height=8, listvariable="", selectmode="single")
-        self.frame_list.listbox.pack()
+        # リストボックス
+        self.frame_drag_drop.listbox = tk.Listbox(self.frame_drag_drop, height=5, listvariable=tk.StringVar(), selectmode="single")
+        self.frame_drag_drop.listbox.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+
+        # スクロールバー
+        self.frame_drag_drop.scrollbar = tk.Scrollbar(self.frame_drag_drop, orient=tk.VERTICAL, command=self.frame_drag_drop.listbox.yview)
+        self.frame_drag_drop.scrollbar.pack(side=tk.LEFT, fill=tk.Y)
+
+        # リストボックスとスクロールバーを連動させる
+        self.frame_drag_drop.listbox['yscrollcommand'] = self.frame_drag_drop.scrollbar.set
 
         # DBに登録しているアプリ情報を表示
         self.disp_app_info()
 
         # ドラッグアンドドロップ
-        self.frame_drag_drop.textbox.drop_target_register(DND_FILES)
-        self.frame_drag_drop.textbox.dnd_bind('<<Drop>>', self.func_drag_and_drop)
-
-        # スクロールバー設定
-        self.frame_drag_drop.scrollbar = tk.Scrollbar(self.frame_drag_drop, orient=tk.VERTICAL, command=self.frame_drag_drop.textbox.yview)
-        self.frame_drag_drop.textbox['yscrollcommand'] = self.frame_drag_drop.scrollbar.set
+        self.frame_drag_drop.listbox.drop_target_register(DND_FILES)
+        self.frame_drag_drop.listbox.dnd_bind('<<Drop>>', self.func_drag_and_drop)
 
         # 配置
-        self.frame_drag_drop.textbox.grid(column=0, row=0, sticky=(tk.E, tk.W, tk.S, tk.N))
-        self.frame_drag_drop.scrollbar.grid(row=0, column=1, sticky=(tk.N, tk.S))
-        self.frame_drag_drop.columnconfigure(0, weight=1)
-        self.frame_drag_drop.rowconfigure(0, weight=1)
-        self.frame_drag_drop.grid(column=0, row=0, padx=5, pady=5, sticky=(tk.E, tk.W, tk.S, tk.N))
         self.columnconfigure(0, weight=1)
         self.rowconfigure(0, weight=1)
 
@@ -79,40 +74,22 @@ class DragAndDrop(TkinterDnD.Tk):
         # テキストボックスに表示
         self.disp_app_info()
 
-    # テキストボックスに表示
+    # DBに登録されたアプリをリストボックスに表示
     def disp_app_info(self):
-        # テキストボックスをクリア
-        self.frame_drag_drop.textbox.configure(state='normal')
-        self.frame_drag_drop.textbox.delete('1.0', tk.END)
+        # リストボックスをクリア
+        self.frame_drag_drop.listbox.delete(0, tk.END)
 
         # テキストボックスにDBから読み込んだパスを表示する。DBが作成されていなければデフォルト値を表示する
         # DBからアプリ情報を読み込む
         self.cur.execute('SELECT name, path FROM apps ORDER BY id ASC')
         apps = self.cur.fetchall()
         if not apps:
-            self.frame_drag_drop.textbox.insert(tk.END, "ここにファイルをドロップ")
+            self.frame_drag_drop.listbox.insert(tk.END, "ここにファイルをドロップ")
         else:
             for app in apps:
-                self.frame_drag_drop.textbox.insert(tk.END, f'{app[0]}\n')
-                self.frame_list.listbox.insert(tk.END, f'{app[0]}\n')
-        self.frame_drag_drop.textbox.configure(state='disabled')
-        self.frame_drag_drop.textbox.see(tk.END)
+                self.frame_drag_drop.listbox.insert(tk.END, f'{app[0]}\n')
 
-        # # テキストボックスをクリア
-        # self.frame_drag_drop.textbox.configure(state='normal')
-        # self.frame_drag_drop.textbox.delete('1.0', tk.END)
-        #
-        # # テキストボックスにDBから読み込んだパスを表示する。DBが作成されていなければデフォルト値を表示する
-        # # DBからアプリ情報を読み込む
-        # self.cur.execute('SELECT name, path FROM apps ORDER BY id ASC')
-        # apps = self.cur.fetchall()
-        # if not apps:
-        #     self.frame_drag_drop.textbox.insert(tk.END, "ここにファイルをドロップ")
-        # else:
-        #     for app in apps:
-        #         self.frame_drag_drop.textbox.insert(tk.END, f'{app[0]}\n')
-        # self.frame_drag_drop.textbox.configure(state='disabled')
-        # self.frame_drag_drop.textbox.see(tk.END)
+        self.frame_drag_drop.listbox.see(tk.END)
 
     # アプリ終了時、DBを切断
     def __del__(self):
