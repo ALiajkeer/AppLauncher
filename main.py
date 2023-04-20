@@ -3,19 +3,21 @@ from tkinterdnd2 import DND_FILES, TkinterDnD
 import sqlite3
 import os
 import subprocess
-# import pystray
-# from PIL import Image
+import pystray
+from PIL import Image
+import threading
 
 APP_DEF_WIDTH = 300
 APP_DEF_HEIGHT = 100
 
 
-class DragAndDrop(TkinterDnD.Tk):
-    def __init__(self):
-        super().__init__()
-
+class AppList(TkinterDnD.Tk):
+    def __init__(self, frame_drag_drop):
         # アプリ情報格納用
         self.app_dict = {}
+
+        # メイン関数からフレームを受け継ぐ
+        self.frame_drag_drop = frame_drag_drop
 
         # アイコン
         # self.icon = ('icon.ico', 'icon_16x16.ico', 'icon_32x32.ico')
@@ -29,31 +31,6 @@ class DragAndDrop(TkinterDnD.Tk):
                             path TEXT,
                             icon_path TEXT)''')
         self.conn.commit()
-
-        # フレーム
-        # ラベルフレームの作成（ラベルフレームのtextをmenuに設定）
-        self.frame_drag_drop = tk.LabelFrame(self, bd=2, relief="ridge", text="menu")
-        self.frame_drag_drop.grid(row=0, sticky="we")
-
-        # リストボックス
-        self.frame_drag_drop.listbox = tk.Listbox(self.frame_drag_drop, height=5, listvariable=tk.StringVar(), selectmode="single")
-        self.frame_drag_drop.listbox.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-
-        # スクロールバー
-        self.frame_drag_drop.scrollbar = tk.Scrollbar(self.frame_drag_drop, orient=tk.VERTICAL, command=self.frame_drag_drop.listbox.yview)
-        self.frame_drag_drop.scrollbar.pack(side=tk.LEFT, fill=tk.Y)
-        # リストボックスとスクロールバーを連動させる
-        self.frame_drag_drop.listbox['yscrollcommand'] = self.frame_drag_drop.scrollbar.set
-
-        # ドラッグアンドドロップ
-        self.frame_drag_drop.listbox.drop_target_register(DND_FILES)
-        self.frame_drag_drop.listbox.dnd_bind('<<Drop>>', self.func_drag_and_drop)
-
-        # アプリをダブルクリックで起動
-        self.frame_drag_drop.listbox.bind('<Double-Button-1>', self.launch_app)
-
-        # 「DEL」キーでアプリを削除
-        self.frame_drag_drop.listbox.bind('<Delete>', self.delete_selected_item)
 
     # DBへ保存
     def save_app_info(self, name, path, icon_path):
@@ -132,19 +109,33 @@ class DragAndDrop(TkinterDnD.Tk):
         # アプリを起動  # 実行時の作業フォルダをアプリのディレクトリに設定
         subprocess.run([self.app_dict.get(selected_text)], cwd=app_dir)
 
-    def toggle_window(self, icon):
-        if self.winfo_viewable():
-            self.withdraw() # ウィンドウを非表示にする
-        else:
-            self.deiconify() # ウィンドウを表示する
-
     # アプリ終了時、DBを切断
     def __del__(self):
         self.conn.close()
 
 
+# タスクトレイ用スレッド
+def start_icon_thread(root):
+    # アイコン画像を用意する
+    icon_image = Image.open("./Image/icon-16.png")
+    # タスクトレイアイコンを作成する
+    menu = pystray.Menu(pystray.MenuItem('Open', lambda: toggle_window(root), default=True))
+    icon = pystray.Icon('app_name', icon_image, 'App Name', menu)
+    # タスクトレイアイコンを表示する
+    icon.run()
+
+
+# タスクトレイアイコンをクリックするたびに、メインウィンドウの表示/非表示を切り替える。
+def toggle_window(root):
+    if root.state() == "normal":
+        root.withdraw()
+    else:
+        root.deiconify()
+
+
 def main():
-    root = tk.Tk()
+    # インスタンス作成
+    root = TkinterDnD.Tk()
 
     # ウィンドウサイズ、タイトルの設定
     root.geometry(f'{APP_DEF_WIDTH}x{APP_DEF_HEIGHT}')
@@ -152,13 +143,42 @@ def main():
     root.maxsize(APP_DEF_WIDTH + 100, APP_DEF_HEIGHT + 100)
     root.title(f'アプリランチャー')
 
+    # フレーム
+    # ラベルフレームの作成（ラベルフレームのtextをmenuに設定）
+    frame_drag_drop = tk.LabelFrame(root, bd=2, relief="ridge", text="menu")
+    frame_drag_drop.grid(row=0, sticky="we")
+
+    # リストボックス
+    frame_drag_drop.listbox = tk.Listbox(frame_drag_drop, height=5, listvariable=tk.StringVar(), selectmode="single")
+    frame_drag_drop.listbox.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+
+    # スクロールバー
+    frame_drag_drop.scrollbar = tk.Scrollbar(frame_drag_drop, orient=tk.VERTICAL, command=frame_drag_drop.listbox.yview)
+    frame_drag_drop.scrollbar.pack(side=tk.LEFT, fill=tk.Y)
+    # リストボックスとスクロールバーを連動させる
+    frame_drag_drop.listbox['yscrollcommand'] = frame_drag_drop.scrollbar.set
+
     # DBに登録しているアプリ情報を表示
-    drag_and_drop = DragAndDrop()
+    drag_and_drop = AppList(frame_drag_drop)
     drag_and_drop.disp_app_info()
+
+    # ドラッグアンドドロップ
+    frame_drag_drop.listbox.drop_target_register(DND_FILES)
+    frame_drag_drop.listbox.dnd_bind('<<Drop>>', drag_and_drop.func_drag_and_drop)
+
+    # アプリをダブルクリックで起動
+    frame_drag_drop.listbox.bind('<Double-Button-1>', drag_and_drop.launch_app)
+
+    # 「DEL」キーでアプリを削除
+    frame_drag_drop.listbox.bind('<Delete>', drag_and_drop.delete_selected_item)
 
     # 配置
     root.columnconfigure(0, weight=1)
     root.rowconfigure(0, weight=1)
+
+    # 別スレッドでアイコン表示を開始する
+    icon_thread = threading.Thread(target=start_icon_thread, args=(root,))
+    icon_thread.start()
 
     root.mainloop()
 
