@@ -6,6 +6,7 @@ import subprocess
 import pystray
 from PIL import Image
 import threading
+import logging
 
 APP_DEF_WIDTH = 300
 APP_DEF_HEIGHT = 100
@@ -120,6 +121,7 @@ class TaskTray:
 
     # タスクトレイ表示
     def start_icon_thread(self):
+        logging.info('タスクトレイ表示スレッド開始')
         # アイコン画像を用意する
         icon_image = Image.open("./Image/icon-16.png")
         # タスクトレイアイコンを作成する
@@ -139,6 +141,9 @@ class TaskTray:
 def main():
     # インスタンス作成
     root = TkinterDnD.Tk()
+
+    # ログレベル設定
+    logging.basicConfig(level=logging.DEBUG, filename='app.log', format='%(asctime)s %(levelname)s %(message)s',)
 
     # ウィンドウサイズ、タイトルの設定
     root.geometry(f'{APP_DEF_WIDTH}x{APP_DEF_HEIGHT}')
