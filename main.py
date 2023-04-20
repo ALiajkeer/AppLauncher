@@ -19,9 +19,6 @@ class AppList(TkinterDnD.Tk):
         # メイン関数からフレームを受け継ぐ
         self.frame_drag_drop = frame_drag_drop
 
-        # アイコン
-        # self.icon = ('icon.ico', 'icon_16x16.ico', 'icon_32x32.ico')
-
         # DBに接続し、テーブルを作成。既にテーブルが存在するなら作成しない。
         self.conn = sqlite3.connect('app.db')
         self.cur = self.conn.cursor()
@@ -114,23 +111,29 @@ class AppList(TkinterDnD.Tk):
         self.conn.close()
 
 
-# タスクトレイ用スレッド
-def start_icon_thread(root):
-    # アイコン画像を用意する
-    icon_image = Image.open("./Image/icon-16.png")
-    # タスクトレイアイコンを作成する
-    menu = pystray.Menu(pystray.MenuItem('Open', lambda: toggle_window(root), default=True))
-    icon = pystray.Icon('app_name', icon_image, 'App Name', menu)
-    # タスクトレイアイコンを表示する
-    icon.run()
+# タスクトレイ関連
+class TaskTray:
+    def __init__(self, root):
+        self.root = root
+        # アイコン
+        # self.icon = ('icon.ico', 'icon_16x16.ico', 'icon_32x32.ico')
 
+    # タスクトレイ表示
+    def start_icon_thread(self):
+        # アイコン画像を用意する
+        icon_image = Image.open("./Image/icon-16.png")
+        # タスクトレイアイコンを作成する
+        menu = pystray.Menu(pystray.MenuItem('Open', self.toggle_window, default=True))
+        icon = pystray.Icon('app_name', icon_image, 'App Name', menu)
+        # タスクトレイアイコンを表示する
+        icon.run()
 
-# タスクトレイアイコンをクリックするたびに、メインウィンドウの表示/非表示を切り替える。
-def toggle_window(root):
-    if root.state() == "normal":
-        root.withdraw()
-    else:
-        root.deiconify()
+    # タスクトレイアイコンをクリックするたびに、メインウィンドウの表示/非表示を切り替える。
+    def toggle_window(self, *args):
+        if self.root.state() == "normal":
+            self.root.withdraw()
+        else:
+            self.root.deiconify()
 
 
 def main():
@@ -177,7 +180,8 @@ def main():
     root.rowconfigure(0, weight=1)
 
     # 別スレッドでアイコン表示を開始する
-    icon_thread = threading.Thread(target=start_icon_thread, args=(root,))
+    task_tray = TaskTray(root)
+    icon_thread = threading.Thread(target=task_tray.start_icon_thread)
     icon_thread.start()
 
     root.mainloop()
