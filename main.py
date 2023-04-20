@@ -3,6 +3,8 @@ from tkinterdnd2 import DND_FILES, TkinterDnD
 import sqlite3
 import os
 import subprocess
+# import pystray
+# from PIL import Image
 
 APP_DEF_WIDTH = 300
 APP_DEF_HEIGHT = 100
@@ -15,6 +17,9 @@ class DragAndDrop(TkinterDnD.Tk):
         # アプリ情報格納用
         self.app_dict = {}
 
+        # アイコン
+        # self.icon = ('icon.ico', 'icon_16x16.ico', 'icon_32x32.ico')
+
         # DBに接続し、テーブルを作成。既にテーブルが存在するなら作成しない。
         self.conn = sqlite3.connect('app.db')
         self.cur = self.conn.cursor()
@@ -25,14 +30,9 @@ class DragAndDrop(TkinterDnD.Tk):
                             icon_path TEXT)''')
         self.conn.commit()
 
-        # ウィンドウサイズ、タイトルの設定
-        self.geometry(f'{APP_DEF_WIDTH}x{APP_DEF_HEIGHT}')
-        self.minsize(APP_DEF_WIDTH, APP_DEF_HEIGHT)
-        self.maxsize(APP_DEF_WIDTH+100, APP_DEF_HEIGHT+100)
-        self.title(f'アプリランチャー')
-
         # フレーム
-        self.frame_drag_drop = tk.LabelFrame(self)
+        # ラベルフレームの作成（ラベルフレームのtextをmenuに設定）
+        self.frame_drag_drop = tk.LabelFrame(self, bd=2, relief="ridge", text="menu")
         self.frame_drag_drop.grid(row=0, sticky="we")
 
         # リストボックス
@@ -42,12 +42,8 @@ class DragAndDrop(TkinterDnD.Tk):
         # スクロールバー
         self.frame_drag_drop.scrollbar = tk.Scrollbar(self.frame_drag_drop, orient=tk.VERTICAL, command=self.frame_drag_drop.listbox.yview)
         self.frame_drag_drop.scrollbar.pack(side=tk.LEFT, fill=tk.Y)
-
         # リストボックスとスクロールバーを連動させる
         self.frame_drag_drop.listbox['yscrollcommand'] = self.frame_drag_drop.scrollbar.set
-
-        # DBに登録しているアプリ情報を表示
-        self.disp_app_info()
 
         # ドラッグアンドドロップ
         self.frame_drag_drop.listbox.drop_target_register(DND_FILES)
@@ -58,10 +54,6 @@ class DragAndDrop(TkinterDnD.Tk):
 
         # 「DEL」キーでアプリを削除
         self.frame_drag_drop.listbox.bind('<Delete>', self.delete_selected_item)
-
-        # 配置
-        self.columnconfigure(0, weight=1)
-        self.rowconfigure(0, weight=1)
 
     # DBへ保存
     def save_app_info(self, name, path, icon_path):
@@ -140,14 +132,35 @@ class DragAndDrop(TkinterDnD.Tk):
         # アプリを起動  # 実行時の作業フォルダをアプリのディレクトリに設定
         subprocess.run([self.app_dict.get(selected_text)], cwd=app_dir)
 
+    def toggle_window(self, icon):
+        if self.winfo_viewable():
+            self.withdraw() # ウィンドウを非表示にする
+        else:
+            self.deiconify() # ウィンドウを表示する
+
     # アプリ終了時、DBを切断
     def __del__(self):
         self.conn.close()
 
 
 def main():
-    app = DragAndDrop()
-    app.mainloop()
+    root = tk.Tk()
+
+    # ウィンドウサイズ、タイトルの設定
+    root.geometry(f'{APP_DEF_WIDTH}x{APP_DEF_HEIGHT}')
+    root.minsize(APP_DEF_WIDTH, APP_DEF_HEIGHT)
+    root.maxsize(APP_DEF_WIDTH + 100, APP_DEF_HEIGHT + 100)
+    root.title(f'アプリランチャー')
+
+    # DBに登録しているアプリ情報を表示
+    drag_and_drop = DragAndDrop()
+    drag_and_drop.disp_app_info()
+
+    # 配置
+    root.columnconfigure(0, weight=1)
+    root.rowconfigure(0, weight=1)
+
+    root.mainloop()
 
 
 if __name__ == "__main__":
