@@ -125,8 +125,9 @@ class AppList:
         name = self.frame_drag_drop.listbox.get(selection[0]).strip()
 
         # 名前変更ダイアログを表示し、新しい名前を取得
-        new_name = simpledialog.askstring("名前変更", f"{name} の新しい名前を入力してください")
-        if new_name is None:  # キャンセルが押された場合は何もしない
+        new_name = simpledialog.askstring("名前変更", f"{name} の新しい名前を入力してください", initialvalue=name)
+        # キャンセルが押された場合は何もしない
+        if new_name is None:
             return
 
         # 新しい名前をDBに反映させる
