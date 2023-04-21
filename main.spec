@@ -8,7 +8,7 @@ a = Analysis(
     ['main.py'],
     pathex=[],
     binaries=[],
-    datas=[('./Image/icon-16.png', './Image/')],
+    datas=[],
     hiddenimports=[],
     hookspath=['.'],
     hooksconfig={},
@@ -19,8 +19,8 @@ a = Analysis(
     cipher=block_cipher,
     noarchive=False,
 )
+a.datas += [('icon-48.ico', '.\\icon-48.ico', 'DATA')]
 pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
-
 exe = EXE(
     pyz,
     a.scripts,

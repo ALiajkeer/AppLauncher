@@ -146,6 +146,7 @@ class AppList:
 class TaskTray:
     def __init__(self, root):
         self.root = root
+        self.icon = None
         # アイコン
         # self.icon = ('icon.ico', 'icon_16x16.ico', 'icon_32x32.ico')
 
@@ -154,12 +155,13 @@ class TaskTray:
         logging.info('タスクトレイ表示スレッド開始')
         try:
             # アイコン画像を用意する
-            icon_image = Image.open("./Image/icon-16.png")
+            # icon_image = Image.open("./Image/icon-16.png")
+            icon_image = Image.open('./icon-48.ico')
             # タスクトレイアイコンを作成する
             menu = pystray.Menu(pystray.MenuItem('Open', self.toggle_window, default=True))
-            icon = pystray.Icon('app_name', icon_image, 'App Name', menu)
+            self.icon = pystray.Icon('app_name', icon_image, 'App Name', menu)
             # タスクトレイアイコンを表示する
-            icon.run()
+            self.icon.run()
         except Exception as e:
             logging.exception("Error in icon.run(): %s", e)
 
@@ -170,10 +172,25 @@ class TaskTray:
         else:
             self.root.deiconify()
 
+    # アプリ終了時、タスクトレイアイコンを削除する
+    def stop_icon_thread(self):
+        logging.info('タスクトレイ表示スレッド停止')
+        if self.icon is not None:
+            self.icon.stop()
+
+
+# ×ボタンでアプリ終了
+def exit_app(root, task_tray):
+    logging.info("アプリケーションを終了します")
+    task_tray.stop_icon_thread()  # タスクトレイアイコンを停止
+    root.withdraw()  # メインウィンドウを非表示にする
+    root.destroy()  # メインウィンドウを破棄する
+
 
 def main():
     # インスタンス作成
     root = TkinterDnD.Tk()
+    task_tray = TaskTray(root)
 
     # ログレベル設定
     logging.basicConfig(level=logging.DEBUG, filename='app.log', format='%(asctime)s %(levelname)s %(message)s',)
@@ -183,8 +200,8 @@ def main():
     root.minsize(APP_DEF_WIDTH, APP_DEF_HEIGHT)
     root.maxsize(APP_DEF_WIDTH + 100, APP_DEF_HEIGHT + 100)
     root.title(f'アプリランチャー')
+    root.protocol("WM_DELETE_WINDOW", lambda: exit_app(root, task_tray))
 
-    # フレーム
     # ラベルフレームの作成（ラベルフレームのtextをmenuに設定）
     frame_drag_drop = tk.LabelFrame(root, bd=2, relief="ridge", text="menu")
     frame_drag_drop.grid(row=0, sticky="we")
@@ -221,7 +238,6 @@ def main():
     root.rowconfigure(0, weight=1)
 
     # 別スレッドでアイコン表示を開始する
-    task_tray = TaskTray(root)
     icon_thread = threading.Thread(target=task_tray.start_icon_thread)
     icon_thread.start()
 
