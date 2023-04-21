@@ -12,7 +12,7 @@ APP_DEF_WIDTH = 300
 APP_DEF_HEIGHT = 100
 
 
-class AppList(TkinterDnD.Tk):
+class AppList:
     def __init__(self, frame_drag_drop):
         # アプリ情報格納用
         self.app_dict = {}
