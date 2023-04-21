@@ -1,4 +1,5 @@
 import tkinter as tk
+from tkinter import simpledialog
 from tkinterdnd2 import DND_FILES, TkinterDnD
 import sqlite3
 import os
@@ -111,9 +112,29 @@ class AppList:
             subprocess.run([full_path], cwd=app_dir)
         # ショートカットの場合
         elif full_path.lower().endswith(".lnk"):
-            subprocess.run(f'start /B "{full_path}"', shell=True)
+            subprocess.run(f"start /B {full_path}", shell=True)
         else:
             self.frame_drag_drop.messagebox.showwarning("警告", "有効なファイルではありません")
+
+    # 右ダブルクリックで、アプリの名前を変更
+    def on_listbox_doubleclick(self, event):
+        # ダブルクリックされたアプリの名前を取得
+        selection = self.frame_drag_drop.listbox.curselection()
+        if not selection:
+            return
+        name = self.frame_drag_drop.listbox.get(selection[0]).strip()
+
+        # 名前変更ダイアログを表示し、新しい名前を取得
+        new_name = simpledialog.askstring("名前変更", f"{name} の新しい名前を入力してください")
+        if new_name is None:  # キャンセルが押された場合は何もしない
+            return
+
+        # 新しい名前をDBに反映させる
+        self.cur.execute("UPDATE apps SET name = ? WHERE name = ?", (new_name, name))
+        self.conn.commit()
+
+        # リストボックスの表示を更新
+        self.disp_app_info()
 
     # アプリ終了時、DBを切断
     def __del__(self):
@@ -190,6 +211,9 @@ def main():
 
     # 「DEL」キーでアプリを削除
     frame_drag_drop.listbox.bind('<Delete>', drag_and_drop.delete_selected_item)
+
+    # 右ダブルクリックで、アプリの名前を変更
+    frame_drag_drop.listbox.bind('<Double-Button-3>', drag_and_drop.on_listbox_doubleclick)
 
     # 配置
     root.columnconfigure(0, weight=1)
