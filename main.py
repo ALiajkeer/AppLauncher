@@ -102,10 +102,18 @@ class AppList:
     def launch_app(self, event):
         # 選択されたアイテムのテキストを取得し、改行を削除
         selected_text = self.frame_drag_drop.listbox.get(self.frame_drag_drop.listbox.curselection()).rstrip()
+        # アイテムのフルパスを取得
+        full_path = self.app_dict.get(selected_text)
         # アプリのパスを辞書から取得  # アプリのディレクトリを取得
-        app_dir = os.path.dirname(self.app_dict.get(selected_text))
+        app_dir = os.path.dirname(full_path)
         # アプリを起動  # 実行時の作業フォルダをアプリのディレクトリに設定
-        subprocess.run([self.app_dict.get(selected_text)], cwd=app_dir)
+        if full_path.lower().endswith(".exe"):
+            subprocess.run([full_path], cwd=app_dir)
+        # ショートカットの場合
+        elif full_path.lower().endswith(".lnk"):
+            subprocess.run(f'start /B "{full_path}"', shell=True)
+        else:
+            self.frame_drag_drop.messagebox.showwarning("警告", "有効なファイルではありません")
 
     # アプリ終了時、DBを切断
     def __del__(self):
@@ -122,13 +130,16 @@ class TaskTray:
     # タスクトレイ表示
     def start_icon_thread(self):
         logging.info('タスクトレイ表示スレッド開始')
-        # アイコン画像を用意する
-        icon_image = Image.open("./Image/icon-16.png")
-        # タスクトレイアイコンを作成する
-        menu = pystray.Menu(pystray.MenuItem('Open', self.toggle_window, default=True))
-        icon = pystray.Icon('app_name', icon_image, 'App Name', menu)
-        # タスクトレイアイコンを表示する
-        icon.run()
+        try:
+            # アイコン画像を用意する
+            icon_image = Image.open("./Image/icon-16.png")
+            # タスクトレイアイコンを作成する
+            menu = pystray.Menu(pystray.MenuItem('Open', self.toggle_window, default=True))
+            icon = pystray.Icon('app_name', icon_image, 'App Name', menu)
+            # タスクトレイアイコンを表示する
+            icon.run()
+        except Exception as e:
+            logging.exception("Error in icon.run(): %s", e)
 
     # タスクトレイアイコンをクリックするたびに、メインウィンドウの表示/非表示を切り替える。
     def toggle_window(self, *args):
