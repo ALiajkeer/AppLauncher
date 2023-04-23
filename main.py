@@ -9,18 +9,21 @@ from PIL import Image
 import threading
 import logging
 
-APP_DEF_WIDTH = 300
-APP_DEF_HEIGHT = 100
+APP_DEF_WIDTH = 400
+APP_DEF_HEIGHT = 200
+APP_LIST_ITEMS = 10
 
 
-class AppList:
-    def __init__(self, frame_drag_drop):
+# 登録アプリ表示関連
+class AppList(tk.LabelFrame):
+    def __init__(self, root):
         try:
+            super().__init__(root, bd=2, relief="ridge", text="登録アプリ")
+            self.grid(row=0, sticky="we")
+            self.root = root
+
             # アプリ情報格納用
             self.app_dict = {}
-
-            # メイン関数からフレームを受け継ぐ
-            self.frame_drag_drop = frame_drag_drop
 
             # DBに接続し、テーブルを作成。既にテーブルが存在するなら作成しない。
             self.conn = sqlite3.connect('app.db')
@@ -31,6 +34,32 @@ class AppList:
                                 path TEXT,
                                 icon_path TEXT)''')
             self.conn.commit()
+
+            # リストボックス
+            self.listbox = tk.Listbox(self, width=60, height=APP_LIST_ITEMS, listvariable=tk.StringVar(), selectmode="single")
+            self.listbox.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+
+            # スクロールバー
+            self.scrollbar = tk.Scrollbar(self, orient=tk.VERTICAL, command=self.listbox.yview)
+            self.scrollbar.pack(side=tk.LEFT, fill=tk.Y)
+            # リストボックスとスクロールバーを連動させる
+            self.listbox['yscrollcommand'] = self.scrollbar.set
+
+            # DBに登録しているアプリ情報を表示
+            self.disp_app_info()
+
+            # ドラッグアンドドロップ
+            self.listbox.drop_target_register(DND_FILES)
+            self.listbox.dnd_bind('<<Drop>>', self.func_drag_and_drop)
+
+            # アプリをダブルクリックで起動
+            self.listbox.bind('<Double-Button-1>', self.launch_app)
+
+            # 「DEL」キーでアプリを削除
+            self.listbox.bind('<Delete>', self.delete_selected_item)
+
+            # 右ダブルクリックで、アプリの名前を変更
+            self.listbox.bind('<Double-Button-3>', self.on_listbox_doubleclick)
         except Exception as e:
             logging.exception("アプリ表示関数の初期化処理で異常発生: %s", e)
 
@@ -47,7 +76,7 @@ class AppList:
     def delete_selected_item(self, event):
         try:
             # 選択されているアイテムを取得
-            selected_item = self.frame_drag_drop.listbox.curselection()
+            selected_item = self.listbox.curselection()
             if not selected_item:
                 return
             item_id = int(selected_item[0]) + 1
@@ -86,7 +115,7 @@ class AppList:
                 # リストボックスに表示
                 self.disp_app_info()
             else:
-                self.frame_drag_drop.messagebox.showwarning("警告", "exeファイル以外のファイルは登録できません。")
+                self.messagebox.showwarning("警告", "exeファイル以外のファイルは登録できません。")
         except Exception as e:
             logging.exception("アプリ登録処理で異常発生: %s", e)
 
@@ -94,7 +123,7 @@ class AppList:
     def disp_app_info(self):
         try:
             # リストボックスをクリア
-            self.frame_drag_drop.listbox.delete(0, tk.END)
+            self.listbox.delete(0, tk.END)
 
             # テキストボックスにDBから読み込んだパスを表示する。DBが作成されていなければデフォルト値を表示する
             # DBからアプリ情報を読み込む
@@ -104,13 +133,13 @@ class AppList:
             self.app_dict.clear()
             # データベースの登録が無い場合は「ここにファイルをドロップ」と表示する
             if not apps:
-                self.frame_drag_drop.listbox.insert(tk.END, "ここにファイルをドロップ")
+                self.listbox.insert(tk.END, "ここにファイルをドロップ")
             else:
                 for app in apps:
                     # 辞書に登録しつつリストボックスに追加
                     self.app_dict.update({app[1]: app[2]})
-                    self.frame_drag_drop.listbox.insert(tk.END, f'{app[1]}\n')
-            self.frame_drag_drop.listbox.see(tk.END)
+                    self.listbox.insert(tk.END, f'{app[1]}\n')
+            self.listbox.see(tk.END)
         except Exception as e:
             logging.exception("アプリ表示処理で異常発生: %s", e)
 
@@ -118,20 +147,20 @@ class AppList:
     def launch_app(self, event):
         try:
             # 選択されたアイテムのテキストを取得し、改行を削除
-            selected_text = self.frame_drag_drop.listbox.get(self.frame_drag_drop.listbox.curselection()).rstrip()
+            selected_text = self.listbox.get(self.listbox.curselection()).rstrip()
             # アイテムのフルパスを取得
             full_path = self.app_dict.get(selected_text)
             # アプリのパスを辞書から取得  # アプリのディレクトリを取得
-            app_dir = os.path.dirname(full_path)
+            app_dir = os.path.dirname(str(full_path))
             # アプリを起動  # 実行時の作業フォルダをアプリのディレクトリに設定
-            if full_path.lower().endswith(".exe"):
-                subprocess.run(["runas", "/user:Administrator", full_path], cwd=app_dir, shell=True)
-                # subprocess.run([full_path], cwd=app_dir)
+            if str(full_path).lower().endswith(".exe"):
+                # subprocess.run(["runas", "/user:Administrator", full_path], cwd=app_dir, shell=True)
+                subprocess.run(str(full_path).encode('utf-8'), cwd=app_dir)
             # ショートカットの場合
-            elif full_path.lower().endswith(".lnk"):
+            elif str(full_path).lower().endswith(".lnk"):
                 subprocess.run(f"start /B {full_path}", shell=True)
             else:
-                self.frame_drag_drop.messagebox.showwarning("警告", "有効なファイルではありません")
+                self.messagebox.showwarning("警告", "有効なファイルではありません")
         except Exception as e:
             logging.exception("登録アプリ起動で異常発生: %s", e)
 
@@ -139,10 +168,10 @@ class AppList:
     def on_listbox_doubleclick(self, event):
         try:
             # ダブルクリックされたアプリの名前を取得
-            selection = self.frame_drag_drop.listbox.curselection()
+            selection = self.listbox.curselection()
             if not selection:
                 return
-            name = self.frame_drag_drop.listbox.get(selection[0]).strip()
+            name = self.listbox.get(selection[0]).strip()
             # 名前変更ダイアログを表示し、新しい名前を取得
             new_name = simpledialog.askstring("名前変更", f"{name} の新しい名前を入力してください", initialvalue=name)
             # キャンセルが押された場合は何もしない
@@ -233,46 +262,18 @@ def main():
     root.title(f'アプリランチャー')
     root.protocol("WM_DELETE_WINDOW", lambda: exit_app(root, task_tray))
 
-    # ラベルフレームの作成（ラベルフレームのtextをmenuに設定）
-    frame_drag_drop = tk.LabelFrame(root, bd=2, relief="ridge", text="menu")
-    frame_drag_drop.grid(row=0, sticky="we")
+    # 登録アプリをリストに表示
+    app = AppList(root=root)
 
-    # リストボックス
-    frame_drag_drop.listbox = tk.Listbox(frame_drag_drop, height=5, listvariable=tk.StringVar(), selectmode="single")
-    frame_drag_drop.listbox.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-
-    # スクロールバー
-    frame_drag_drop.scrollbar = tk.Scrollbar(frame_drag_drop, orient=tk.VERTICAL, command=frame_drag_drop.listbox.yview)
-    frame_drag_drop.scrollbar.pack(side=tk.LEFT, fill=tk.Y)
-    # リストボックスとスクロールバーを連動させる
-    frame_drag_drop.listbox['yscrollcommand'] = frame_drag_drop.scrollbar.set
-
-    # DBに登録しているアプリ情報を表示
-    drag_and_drop = AppList(frame_drag_drop)
-    drag_and_drop.disp_app_info()
-
-    # ドラッグアンドドロップ
-    frame_drag_drop.listbox.drop_target_register(DND_FILES)
-    frame_drag_drop.listbox.dnd_bind('<<Drop>>', drag_and_drop.func_drag_and_drop)
-
-    # アプリをダブルクリックで起動
-    frame_drag_drop.listbox.bind('<Double-Button-1>', drag_and_drop.launch_app)
-
-    # 「DEL」キーでアプリを削除
-    frame_drag_drop.listbox.bind('<Delete>', drag_and_drop.delete_selected_item)
-
-    # 右ダブルクリックで、アプリの名前を変更
-    frame_drag_drop.listbox.bind('<Double-Button-3>', drag_and_drop.on_listbox_doubleclick)
-
-    # 配置
-    root.columnconfigure(0, weight=1)
-    root.rowconfigure(0, weight=1)
+    # # 配置
+    # root.columnconfigure(0, weight=1)
+    # root.rowconfigure(0, weight=1)
 
     # 別スレッドでアイコン表示を開始する
     icon_thread = threading.Thread(target=task_tray.start_icon_thread)
     icon_thread.start()
 
-    root.mainloop()
+    app.mainloop()
 
 
 # 直接呼び出し
