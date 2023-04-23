@@ -199,17 +199,15 @@ class TaskTray:
     # アプリ終了時、タスクトレイアイコンを削除する
     def stop_icon_thread(self):
         try:
-            logging.info('タスクトレイ表示スレッド停止')
             if self.icon is not None:
                 self.icon.stop()
         except Exception as e:
-            logging.exception("アプリ終了時のタスクトレイアイコン削除処理で異常発生: %s", e)
+            logging.exception("タスクトレイ表示スレッド停止処理で異常発生: %s", e)
 
 
 # ×ボタンでアプリ終了(タスクトレイアイコンを停止させる)
 def exit_app(root, task_tray):
     try:
-        logging.info("アプリケーションを終了します")
         # タスクトレイアイコンを停止
         task_tray.stop_icon_thread()
         # メインウィンドウを非表示にする
