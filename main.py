@@ -1,5 +1,5 @@
 import tkinter as tk
-from tkinter import simpledialog
+from tkinter import simpledialog, messagebox
 from tkinterdnd2 import DND_FILES, TkinterDnD
 import sqlite3
 import os
@@ -115,7 +115,7 @@ class AppList(tk.LabelFrame):
                 # リストボックスに表示
                 self.disp_app_info()
             else:
-                self.messagebox.showwarning("警告", "exeファイル以外のファイルは登録できません。")
+                messagebox.showerror("警告", "exeファイル以外のファイルは登録できません。")
         except Exception as e:
             logging.exception("アプリ登録処理で異常発生: %s", e)
 
@@ -154,13 +154,12 @@ class AppList(tk.LabelFrame):
             app_dir = os.path.dirname(str(full_path))
             # アプリを起動  # 実行時の作業フォルダをアプリのディレクトリに設定
             if str(full_path).lower().endswith(".exe"):
-                # subprocess.run(["runas", "/user:Administrator", full_path], cwd=app_dir, shell=True)
                 subprocess.run(str(full_path).encode('utf-8'), cwd=app_dir)
             # ショートカットの場合
             elif str(full_path).lower().endswith(".lnk"):
                 subprocess.run(f"start /B {full_path}", shell=True)
             else:
-                self.messagebox.showwarning("警告", "有効なファイルではありません")
+                messagebox.showerror("警告", "有効なファイルではありません")
         except Exception as e:
             logging.exception("登録アプリ起動で異常発生: %s", e)
 
