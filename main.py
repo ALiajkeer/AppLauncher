@@ -11,7 +11,7 @@ import logging
 
 APP_DEF_WIDTH = 400
 APP_DEF_HEIGHT = 200
-APP_LIST_ITEMS = 10
+LIST_ITEMS = 10
 
 
 # 登録アプリ表示関連
@@ -36,7 +36,7 @@ class AppList(tk.LabelFrame):
             self.conn.commit()
 
             # リストボックス
-            self.listbox = tk.Listbox(self, width=60, height=APP_LIST_ITEMS, listvariable=tk.StringVar(), selectmode="single")
+            self.listbox = tk.Listbox(self, width=60, height=LIST_ITEMS, listvariable=tk.StringVar(), selectmode="single")
             self.listbox.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
 
             # スクロールバー
@@ -195,21 +195,19 @@ class TaskTray:
     def __init__(self, root):
         try:
             self.root = root
+            # アイコン画像を用意する
+            # self.icon_image = Image.open("./Image/icon-48.ico")
+            self.icon_image = Image.open('./icon-48.ico')
             self.icon = None
-            # アイコン
-            # self.icon = ('icon.ico', 'icon_16x16.ico', 'icon_32x32.ico')
         except Exception as e:
             logging.exception("タスクトレイ関数の初期化処理で異常発生: %s", e)
 
     # タスクトレイ表示
     def start_icon_thread(self):
         try:
-            # アイコン画像を用意する
-            # icon_image = Image.open("./Image/icon-16.png")
-            icon_image = Image.open('./icon-48.ico')
             # タスクトレイアイコンを作成する
             menu = pystray.Menu(pystray.MenuItem('Open', self.toggle_window, default=True))
-            self.icon = pystray.Icon('app_name', icon_image, 'App Name', menu)
+            self.icon = pystray.Icon('app_name', self.icon_image, 'App Name', menu)
             # タスクトレイアイコンを表示する
             self.icon.run()
         except Exception as e:
@@ -264,10 +262,6 @@ def main():
 
     # 登録アプリをリストに表示
     app = AppList(root=root)
-
-    # # 配置
-    # root.columnconfigure(0, weight=1)
-    # root.rowconfigure(0, weight=1)
 
     # 別スレッドでアイコン表示を開始する
     icon_thread = threading.Thread(target=task_tray.start_icon_thread)
