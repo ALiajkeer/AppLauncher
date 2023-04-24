@@ -52,8 +52,9 @@ class AppList(tk.LabelFrame):
             self.listbox.drop_target_register(DND_FILES)
             self.listbox.dnd_bind('<<Drop>>', self.func_drag_and_drop)
 
-            # アプリをダブルクリックで起動
+            # アプリをダブルクリック、もしくはエンターキーで起動
             self.listbox.bind('<Double-Button-1>', self.launch_app)
+            self.listbox.bind("<Return>", self.launch_app)
 
             # 「DEL」キーでアプリを削除
             self.listbox.bind('<Delete>', self.delete_selected_item)
