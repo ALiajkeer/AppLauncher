@@ -46,10 +46,10 @@ class AppList(tk.LabelFrame):
             self.conn.commit()
 
             # データベースの内容を表示（デバッグ用）
-            self.cur.execute('SELECT * FROM apps ORDER BY id')
-            data = self.cur.fetchall()
-            for row in data:
-                print(row)
+            # self.cur.execute('SELECT * FROM apps ORDER BY id')
+            # data = self.cur.fetchall()
+            # for row in data:
+            #     print(row)
 
             # リストボックス
             self.listbox = tk.Listbox(self, width=60, height=LIST_ITEMS, listvariable=tk.StringVar(), selectmode="single")
