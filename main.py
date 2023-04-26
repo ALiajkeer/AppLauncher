@@ -7,6 +7,7 @@ import subprocess
 import pystray
 from PIL import Image
 import threading
+import time
 import logging
 
 APP_DEF_WIDTH = 400
@@ -29,6 +30,10 @@ class AppList(tk.LabelFrame):
             self.current_index = None
             self.target_index = None
             self.dragging = False
+            # リスト移動時判断用（ダブルクリックで反応させない用）
+            self.move_flg = False
+            # 一瞬だけのクリック対策用
+            self.start_time = 0
 
             # DBに接続し、テーブルを作成。既にテーブルが存在するなら作成しない。
             self.conn = sqlite3.connect('app.db')
@@ -180,6 +185,8 @@ class AppList(tk.LabelFrame):
                 subprocess.run(f"start /B {full_path}", shell=True)
             else:
                 messagebox.showerror("警告", "有効なファイルではありません")
+            # クリック時のリスト移動処理を発生させない
+            self.move_flg = False
         except Exception as e:
             logging.exception("登録アプリ起動で異常発生: %s", e)
 
@@ -207,71 +214,75 @@ class AppList(tk.LabelFrame):
     # マウスの左ボタンが押された時のアイテムのインデックスを記憶
     def on_select(self, event):
         self.current_index = self.listbox.nearest(event.y)
+        self.move_flg = True
+        self.start_time = time.time()
 
     # リスト内アプリをドラッグ開始
     def on_drag(self, event):
-        # マウスがドラッグされた時に呼ばれる関数
-        self.dragging = True
-        # 選択状態をクリアする
-        self.listbox.selection_clear(0, tk.END)
-        # ドラッグ中の位置に対応するアイテムのインデックスを index に設定する
-        index = self.listbox.nearest(event.y)
-        if index != self.current_index:
-            # ドラッグ中の位置に対応するアイテムを選択状態にする
-            self.target_index = index
-            self.listbox.selection_set(self.target_index)
-            self.listbox.activate(self.target_index)
-
-    # リスト内アプリをドラッグ&ドロップした場合、アプリを入れ替えてデータベースを更新
-    def on_drop(self, event):
-        # ドラッグ中であることを確認
-        if self.dragging:
-            self.dragging = False
-            # ドロップ先が指定されている場合
-            if self.target_index is not None:
-                # 選択状態をクリアし、ドロップ先を選択状態にする
-                self.listbox.selection_clear(0, tk.END)
+        elapsed_time = time.time() - self.start_time
+        # アプリ移動時のみ実行（ダブルクリック時には動作させない）
+        # 一瞬だけのクリックでは反応させない
+        if self.move_flg and elapsed_time >= 0.3:
+            # マウスがドラッグされた時に呼ばれる関数
+            self.dragging = True
+            # 選択状態をクリアする
+            self.listbox.selection_clear(0, tk.END)
+            # ドラッグ中の位置に対応するアイテムのインデックスを index に設定する
+            index = self.listbox.nearest(event.y)
+            if index != self.current_index:
+                # ドラッグ中の位置に対応するアイテムを選択状態にする
+                self.target_index = index
                 self.listbox.selection_set(self.target_index)
                 self.listbox.activate(self.target_index)
 
-                base_id = self.current_index + 1
-                max_id = self.listbox.size() + 1
-                # ドロップ先が現在のインデックスよりも後ろの場合
-                if self.target_index > self.current_index:
-                    # ドロップ元の要素をドロップ先の次の位置に挿入し、ドロップ元を削除する
-                    self.listbox.insert(self.target_index + 1, self.listbox.get(self.current_index))
-                    self.listbox.delete(self.current_index)
-                    # データベースのIDを振りなおす
-                    self.cur.execute(f"SELECT id FROM apps WHERE id BETWEEN {base_id} AND {self.target_index + 1} ORDER BY id")
-                    results = self.cur.fetchall()
-                    if results:
-                        # idを振り直す
-                        for i, r in enumerate(results):
-                            if base_id == r[0]:
-                                self.cur.execute(f"UPDATE apps SET id={max_id} WHERE id={base_id}")
-                            else:
-                                self.cur.execute(f"UPDATE apps SET id={base_id + i - 1} WHERE id={base_id + i}")
-                        self.cur.execute(f"UPDATE apps SET id={base_id + i} WHERE id={max_id}")
-                        self.conn.commit()
-                else:
-                    # ドロップ元の要素をドロップ先の位置に挿入し、ドロップ元の次の位置を削除する
-                    self.listbox.insert(self.target_index, self.listbox.get(self.current_index))
-                    self.listbox.delete(base_id)
-                    # データベースのIDを振りなおす
-                    self.cur.execute(f"SELECT id FROM apps WHERE id BETWEEN {self.target_index + 1} AND {base_id} ORDER BY id")
-                    results = self.cur.fetchall()
-                    if results:
-                        # idを振り直す
-                        self.cur.execute(f"UPDATE apps SET id={max_id} WHERE id={base_id}")
-                        for i, r in enumerate(results):
-                            if base_id == r[0]:
-                                self.cur.execute(f"UPDATE apps SET id={self.target_index + 1} WHERE id={max_id}")
-                            else:
-                                self.cur.execute(f"UPDATE apps SET id={base_id - i} WHERE id={self.current_index - i}")
-                        self.conn.commit()
-                # 現在のインデックスとドロップ先を初期化する
-                self.current_index = None
-                self.target_index = None
+    # リスト内アプリをドラッグ&ドロップした場合、アプリを入れ替えてデータベースを更新
+    def on_drop(self, event):
+        # ドラッグ中であり、ドロップ先が指定されている場合
+        if self.dragging and self.target_index is not None:
+            self.dragging = False
+            # 選択状態をクリアし、ドロップ先を選択状態にする
+            self.listbox.selection_clear(0, tk.END)
+            self.listbox.selection_set(self.target_index)
+            self.listbox.activate(self.target_index)
+
+            base_id = self.current_index + 1
+            max_id = self.listbox.size() + 1
+            # ドロップ先が現在のインデックスよりも後ろの場合
+            if self.target_index > self.current_index:
+                # ドロップ元の要素をドロップ先の次の位置に挿入し、ドロップ元を削除する
+                self.listbox.insert(self.target_index + 1, self.listbox.get(self.current_index))
+                self.listbox.delete(self.current_index)
+                # データベースのIDを振りなおす
+                self.cur.execute(f"SELECT id FROM apps WHERE id BETWEEN {base_id} AND {self.target_index + 1} ORDER BY id")
+                results = self.cur.fetchall()
+                if results:
+                    # idを振り直す
+                    for i, r in enumerate(results):
+                        if base_id == r[0]:
+                            self.cur.execute(f"UPDATE apps SET id={max_id} WHERE id={base_id}")
+                        else:
+                            self.cur.execute(f"UPDATE apps SET id={base_id + i - 1} WHERE id={base_id + i}")
+                    self.cur.execute(f"UPDATE apps SET id={base_id + len(results) - 1} WHERE id={max_id}")
+                    self.conn.commit()
+            else:
+                # ドロップ元の要素をドロップ先の位置に挿入し、ドロップ元の次の位置を削除する
+                self.listbox.insert(self.target_index, self.listbox.get(self.current_index))
+                self.listbox.delete(base_id)
+                # データベースのIDを振りなおす
+                self.cur.execute(f"SELECT id FROM apps WHERE id BETWEEN {self.target_index + 1} AND {base_id} ORDER BY id")
+                results = self.cur.fetchall()
+                if results:
+                    # idを振り直す
+                    self.cur.execute(f"UPDATE apps SET id={max_id} WHERE id={base_id}")
+                    for i, r in enumerate(results):
+                        if base_id == r[0]:
+                            self.cur.execute(f"UPDATE apps SET id={self.target_index + 1} WHERE id={max_id}")
+                        else:
+                            self.cur.execute(f"UPDATE apps SET id={base_id - i} WHERE id={self.current_index - i}")
+                    self.conn.commit()
+            # 現在のインデックスとドロップ先を初期化する
+            self.current_index = None
+            self.target_index = None
 
     # アプリ終了時、DBを切断
     def __del__(self):
